@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "npm install --omit=dev",
+    "build": "npm install",
     "test": "echo 'No test specified' && exit 0",
     "update-foreign-keys": "node updateForeignKeys.js"
   },

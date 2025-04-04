@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step required'",
+    "build": "npm install --omit=dev",
     "test": "echo 'No test specified' && exit 0",
     "update-foreign-keys": "node updateForeignKeys.js"
   },

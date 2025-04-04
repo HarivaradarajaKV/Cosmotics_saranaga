@@ -8,6 +8,16 @@ require('dotenv').config();
 
 const app = express();
 
+// Root endpoint for basic health check
+app.get('/', (req, res) => {
+    res.status(200).send('OK');
+});
+
+// Health check endpoint without /api prefix
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 // WebSocket connections store
 const clients = new Map();
 

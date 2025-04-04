@@ -1,30 +1,12 @@
 [phases.setup]
-nixPkgs = [
-    "python39",
-    "python39-pip",
-    "gcc",
-    "gnumake",
-    "nodejs-18_x",
-    "python39-setuptools",
-    "python39-wheel"
-]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
 cmds = [
-    "python3.9 -m pip install --upgrade pip",
-    "whereis python3.9",
-    "ln -sf $(whereis python3.9 | awk '{print $2}') /usr/local/bin/python3",
-    "ln -sf /usr/local/bin/python3 /usr/bin/python3",
-    "ln -sf /usr/local/bin/python3 /usr/bin/python",
-    "python3 --version",
-    "export PYTHON=/usr/local/bin/python3",
-    "npm config set python /usr/local/bin/python3",
-    "npm install node-gyp -g",
-    "npm install --build-from-source --python=/usr/local/bin/python3"
+    "npm ci --only=production"
 ]
 
 [phases.build]
 cmds = [
-    "export PYTHON=/usr/local/bin/python3",
-    "npm rebuild bcrypt --build-from-source --python=/usr/local/bin/python3"
+    "npm run build"
 ] 

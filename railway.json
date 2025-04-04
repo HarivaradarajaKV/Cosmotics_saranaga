@@ -2,7 +2,7 @@
     "$schema": "https://railway.app/railway.schema.json",
     "build": {
         "builder": "NIXPACKS",
-        "buildCommand": "npm config set python /usr/bin/python3 && PYTHON=/usr/bin/python3 npm install --build-from-source && PYTHON=/usr/bin/python3 npm rebuild bcrypt --build-from-source"
+        "buildCommand": "python3 --version && export PYTHON=/usr/local/bin/python3 && npm config set python /usr/local/bin/python3 && npm install node-gyp -g && npm install --build-from-source --python=/usr/local/bin/python3 && npm rebuild bcrypt --build-from-source --python=/usr/local/bin/python3"
     },
     "deploy": {
         "startCommand": "npm start",

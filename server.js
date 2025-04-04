@@ -15,30 +15,22 @@ const clients = new Map();
 app.use(cors({
     origin: function(origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) {
-            console.log('Allowing request with no origin');
-            return callback(null, true);
-        }
-        
-        console.log('Incoming request from origin:', origin);
-        
-        // During development, accept all origins
+        if (!origin) return callback(null, true);
         callback(null, true);
-        
-        // Log the allowed request
-        console.log('CORS: Allowed request from origin:', origin);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
 }));
 
-// Body parsing middleware with logging
+// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Health check endpoint for Railway - moved before database operations
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads', 'profile-photos');
@@ -46,20 +38,8 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Request logging middleware
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    if (req.method === 'POST') {
-        console.log('Body:', JSON.stringify(req.body, null, 2));
-    }
-    next();
-});
-
-// Health check endpoint for Railway
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 const authRouter = require('./routes/auth');
@@ -80,48 +60,12 @@ app.use('/api/brand-reviews', brandReviewsRouter);
 app.use('/api/coupons', couponsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/razorpay', razorpayRouter);
-
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/wishlist', require('./routes/wishlist'));
 app.use('/api/users', require('./routes/users'));
 app.use('/orders', ordersRouter);
-
-// Test database endpoint
-app.get('/api/test-db', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT NOW()');
-        res.json({ 
-            status: 'ok',
-            dbTime: result.rows[0].now,
-            message: 'Database connection successful'
-        });
-    } catch (error) {
-        console.error('Database test error:', error);
-        res.status(500).json({ 
-            status: 'error',
-            message: error.message
-        });
-    }
-});
-
-// Serve static files only if web-build directory exists
-const webBuildPath = path.join(__dirname, '../web-build');
-if (fs.existsSync(webBuildPath)) {
-    app.use(express.static(webBuildPath));
-    
-    // Handle Expo web routing
-    app.get('/admin/*', (req, res) => {
-        res.sendFile(path.join(webBuildPath, 'index.html'));
-    });
-
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(webBuildPath, 'index.html'));
-    });
-} else {
-    console.log('Web build directory not found. Skipping static file serving.');
-}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -131,145 +75,95 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5001;
 
-// Test database connection before starting server
+// Start server immediately without waiting for DB
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+// Initialize WebSocket server
+const wss = new WebSocket.Server({ server });
+
+// Test database connection in the background
 pool.connect((err, client, release) => {
     if (err) {
-        console.error('Error connecting to the database:', err);
-        process.exit(1);
+        console.error('Warning - Database connection error:', err);
+        // Don't exit process, just log the error
+    } else {
+        release();
+        console.log('Database connection successful');
     }
-    release();
-    console.log('Database connection successful');
+});
 
-    // Start server after successful database connection
-    const server = app.listen(PORT, '0.0.0.0', () => {
-        const interfaces = require('os').networkInterfaces();
-        const addresses = [];
-        
-        // Get all network interfaces
-        for (const iface of Object.values(interfaces)) {
-            for (const alias of iface) {
-                if (alias.family === 'IPv4' && !alias.internal) {
-                    addresses.push(alias.address);
-                }
-            }
-        }
+// Handle server errors
+server.on('error', (error) => {
+    console.error('Server error:', error);
+});
 
-        console.log(`Server running on port ${PORT}`);
-        console.log('Server is accessible at:');
-        console.log(`- Local: http://localhost:${PORT}`);
-        addresses.forEach(addr => {
-            console.log(`- Network: http://${addr}:${PORT}`);
-        });
-        
-        // Enable CORS for all Expo development URLs
-        const allowedOrigins = [
-            'http://localhost:19006',
-            'http://localhost:19000',
-            'http://localhost:8081',
-            ...addresses.map(addr => `http://${addr}:19000`),
-            ...addresses.map(addr => `http://${addr}:19006`),
-            ...addresses.map(addr => `http://${addr}:8081`),
-            ...addresses.map(addr => `http://${addr}:${PORT}`)
-        ];
-        
-        console.log('CORS enabled for origins:', allowedOrigins);
+// Handle process termination
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Closing server...');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
     });
+});
 
-    // Initialize WebSocket server
-    const wss = new WebSocket.Server({ server });
-
-    // Helper function to get user data
-    async function getUserData(userId) {
+// WebSocket connection handling
+wss.on('connection', (ws) => {
+    console.log('New WebSocket connection');
+    let currentUserId = null;
+    
+    ws.on('message', async (message) => {
         try {
-            // Get cart items
-            const cartResult = await pool.query('SELECT * FROM cart_items WHERE user_id = $1', [userId]);
+            const data = JSON.parse(message);
             
-            // Get wishlist items
-            const wishlistResult = await pool.query('SELECT * FROM wishlist_items WHERE user_id = $1', [userId]);
+            if (data.type === 'auth') {
+                currentUserId = data.userId;
+                if (!clients.has(currentUserId)) {
+                    clients.set(currentUserId, new Set());
+                }
+                clients.get(currentUserId).add(ws);
+            }
             
-            // Get user profile
-            const profileResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
-            
-            return {
-                cart: cartResult.rows,
-                wishlist: wishlistResult.rows,
-                profile: profileResult.rows[0]
-            };
+            if (data.type === 'sync_request' && currentUserId) {
+                const userData = await getUserData(currentUserId);
+                if (userData) {
+                    ws.send(JSON.stringify({
+                        type: 'SYNC_DATA',
+                        payload: userData
+                    }));
+                }
+            }
         } catch (error) {
-            console.error('Error fetching user data:', error);
-            return null;
+            console.error('WebSocket message error:', error);
         }
-    }
+    });
 
-    wss.on('connection', (ws) => {
-        console.log('New WebSocket connection');
-        let currentUserId = null;
+    ws.on('close', () => {
+        if (currentUserId && clients.has(currentUserId)) {
+            const connections = clients.get(currentUserId);
+            connections.delete(ws);
+            if (connections.size === 0) {
+                clients.delete(currentUserId);
+            }
+        }
+    });
+});
+
+// Helper function to get user data
+async function getUserData(userId) {
+    try {
+        const cartResult = await pool.query('SELECT * FROM cart_items WHERE user_id = $1', [userId]);
+        const wishlistResult = await pool.query('SELECT * FROM wishlist_items WHERE user_id = $1', [userId]);
+        const profileResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
         
-        ws.on('message', async (message) => {
-            try {
-                const data = JSON.parse(message);
-                console.log('WebSocket received:', data);
-                
-                // Handle user authentication
-                if (data.type === 'auth') {
-                    currentUserId = data.userId;
-                    // Store the connection with the user ID
-                    if (!clients.has(currentUserId)) {
-                        clients.set(currentUserId, new Set());
-                    }
-                    clients.get(currentUserId).add(ws);
-                    console.log(`User ${currentUserId} connected. Total connections: ${clients.get(currentUserId).size}`);
-                }
-                
-                // Handle sync request
-                if (data.type === 'sync_request' && currentUserId) {
-                    const userData = await getUserData(currentUserId);
-                    if (userData) {
-                        ws.send(JSON.stringify({
-                            type: 'SYNC_DATA',
-                            payload: userData
-                        }));
-                    }
-                }
-                
-                // Handle updates
-                if (data.type === 'update' && currentUserId) {
-                    const { action, payload } = data;
-                    // Broadcast to all connections of the same user except sender
-                    if (clients.has(currentUserId)) {
-                        clients.get(currentUserId).forEach((client) => {
-                            if (client !== ws && client.readyState === WebSocket.OPEN) {
-                                client.send(JSON.stringify({
-                                    type: action,
-                                    payload
-                                }));
-                            }
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('WebSocket message error:', error);
-            }
-        });
-
-        ws.on('close', () => {
-            if (currentUserId && clients.has(currentUserId)) {
-                const connections = clients.get(currentUserId);
-                connections.delete(ws);
-                if (connections.size === 0) {
-                    clients.delete(currentUserId);
-                }
-                console.log(`User ${currentUserId} disconnected. Remaining connections: ${connections.size}`);
-            }
-        });
-    });
-
-    // Handle server errors
-    server.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use. Please try a different port or kill the process using this port.`);
-        } else {
-            console.error('Server error:', error);
-        }
-    });
-}); 
+        return {
+            cart: cartResult.rows,
+            wishlist: wishlistResult.rows,
+            profile: profileResult.rows[0]
+        };
+    } catch (error) {
+        console.error('Error fetching user data:', error);
+        return null;
+    }
+} 

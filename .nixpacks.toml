@@ -1,0 +1,13 @@
+[phases.setup]
+nixPkgs = ["python3", "gcc", "gnumake", "nodejs-18_x"]
+
+[phases.install]
+cmds = [
+  "npm config set python /usr/bin/python3",
+  "PYTHON=/usr/bin/python3 npm install --build-from-source"
+]
+
+[phases.build]
+cmds = [
+  "PYTHON=/usr/bin/python3 npm rebuild bcrypt --build-from-source"
+] 

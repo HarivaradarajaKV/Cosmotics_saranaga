@@ -4,6 +4,103 @@ const { auth, adminAuth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Product:
+ *       type: object
+ *       required:
+ *         - name
+ *         - price
+ *         - category
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: The auto-generated id of the product
+ *         name:
+ *           type: string
+ *           description: The name of the product
+ *         description:
+ *           type: string
+ *           description: Product description
+ *         price:
+ *           type: number
+ *           format: float
+ *           description: The price of the product
+ *         category:
+ *           type: string
+ *           description: Product category
+ *         image_url:
+ *           type: string
+ *           description: URL to the product's main image
+ *         stock_quantity:
+ *           type: integer
+ *           description: Available stock quantity
+ *         offer_percentage:
+ *           type: integer
+ *           description: Discount percentage if applicable
+ */
+
+/**
+ * @swagger
+ * /api/products:
+ *   get:
+ *     summary: Get all products
+ *     description: Retrieve a list of products with optional filtering
+ *     parameters:
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in product name and description
+ *       - in: query
+ *         name: min_price
+ *         schema:
+ *           type: number
+ *         description: Minimum price filter
+ *       - in: query
+ *         name: max_price
+ *         schema:
+ *           type: number
+ *         description: Maximum price filter
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: A list of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 total:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
+
 // Configure multer for handling file uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {

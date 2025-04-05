@@ -1,0 +1,39 @@
+{
+  "name": "saranga-ayurveda-backend",
+  "description": "Saranga Ayurveda Backend API",
+  "keywords": [
+    "node",
+    "express",
+    "api"
+  ],
+  "website": "",
+  "repository": "https://github.com/HarivaradarajaKV/Cosmetics_app_backend",
+  "logo": "",
+  "success_url": "/health",
+  "scripts": {
+    "postdeploy": "npm run build"
+  },
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment for Node.js app",
+      "value": "production"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "stack": "heroku-24"
+} 

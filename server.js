@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('./db');
 const WebSocket = require('ws');
-const compression = require('compression');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 const { logger, requestLogger, errorLogger } = require('./utils/logger');
@@ -12,9 +11,6 @@ const responseHandler = require('./middleware/responseHandler');
 require('dotenv').config();
 
 const app = express();
-
-// Compression middleware
-app.use(compression());
 
 // Request logging middleware
 app.use(requestLogger);

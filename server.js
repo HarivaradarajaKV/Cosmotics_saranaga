@@ -272,22 +272,4 @@ wss.on('connection', (ws) => {
             }
         }
     });
-});
-
-// Helper function to get user data
-async function getUserData(userId) {
-    try {
-        const cartResult = await db.query('SELECT * FROM cart_items WHERE user_id = $1', [userId]);
-        const wishlistResult = await db.query('SELECT * FROM wishlist_items WHERE user_id = $1', [userId]);
-        const profileResult = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
-        
-        return {
-            cart: cartResult.rows,
-            wishlist: wishlistResult.rows,
-            profile: profileResult.rows[0]
-        };
-    } catch (error) {
-        console.error('Error fetching user data:', error);
-        return null;
-    }
-}
+}); 
